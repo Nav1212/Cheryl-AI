@@ -2,11 +2,13 @@ using Azure;
 using Azure.AI.OpenAI;
 using Microsoft.Extensions.Configuration;
 using OpenAI.Chat;
+using System.ClientModel;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace PhoneAgent.IntegrationTests;
 
+[Collection("AzureOpenAI")]
 public class AzureOpenAIIntegrationTests
 {
     private readonly ITestOutputHelper _output;
@@ -17,7 +19,7 @@ public class AzureOpenAIIntegrationTests
         _output = output;
         
         // Load appsettings.json to get environment file path
-        var appSettingsPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "Cheryl-AI", "appsettings.json");
+        var appSettingsPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "appsettings.json");
         var tempConfig = new ConfigurationBuilder()
             .AddJsonFile(appSettingsPath, optional: true)
             .Build();
@@ -48,16 +50,16 @@ public class AzureOpenAIIntegrationTests
     public async Task ChatCompletion_ShouldGenerateResponse()
     {
         // Arrange
-        var endpoint = _configuration["AZURE_OPENAI_ENDPOINT"];
+        var endpoint =new Uri("https://mh-dev-whisper.openai.azure.com/");
         var apiKey = _configuration["AZURE_OPENAI_API_KEY"];
-        var deploymentName = _configuration["AZURE_OPENAI_DEPLOYMENT_NAME"];
+        var deploymentName = "gpt-5.2";
 
-        Assert.False(string.IsNullOrEmpty(endpoint), "AZURE_OPENAI_ENDPOINT is not set");
         Assert.False(string.IsNullOrEmpty(apiKey), "AZURE_OPENAI_API_KEY is not set");
         Assert.False(string.IsNullOrEmpty(deploymentName), "AZURE_OPENAI_DEPLOYMENT_NAME is not set");
 
-        var client = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
-        var chatClient = client.GetChatClient(deploymentName);
+        AzureOpenAIClient client = new( endpoint, new AzureKeyCredential(apiKey));
+
+        ChatClient chatClient = client.GetChatClient(deploymentName);
 
         var messages = new List<ChatMessage>
         {
@@ -88,15 +90,13 @@ public class AzureOpenAIIntegrationTests
     public async Task ChatCompletion_WithConversation_ShouldMaintainContext()
     {
         // Arrange
-        var endpoint = _configuration["AZURE_OPENAI_ENDPOINT"];
+        var endpoint = new Uri("https://mh-dev-whisper.openai.azure.com/");
         var apiKey = _configuration["AZURE_OPENAI_API_KEY"];
-        var deploymentName = _configuration["AZURE_OPENAI_DEPLOYMENT_NAME"];
+        var deploymentName = "gpt-5.2";
 
-        Assert.False(string.IsNullOrEmpty(endpoint), "AZURE_OPENAI_ENDPOINT is not set");
         Assert.False(string.IsNullOrEmpty(apiKey), "AZURE_OPENAI_API_KEY is not set");
-        Assert.False(string.IsNullOrEmpty(deploymentName), "AZURE_OPENAI_DEPLOYMENT_NAME is not set");
 
-        var client = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+        var client = new AzureOpenAIClient(endpoint, new AzureKeyCredential(apiKey));
         var chatClient = client.GetChatClient(deploymentName);
 
         var messages = new List<ChatMessage>
@@ -125,33 +125,31 @@ public class AzureOpenAIIntegrationTests
     }
 
     [Fact]
-    public async Task StreamingChatCompletion_ShouldStreamResponse()
+    public void StreamingChatCompletion_ShouldStreamResponse()
     {
         // Arrange
-        var endpoint = _configuration["AZURE_OPENAI_ENDPOINT"];
+        var endpoint = new Uri("https://mh-dev-whisper.openai.azure.com/");
         var apiKey = _configuration["AZURE_OPENAI_API_KEY"];
-        var deploymentName = _configuration["AZURE_OPENAI_DEPLOYMENT_NAME"];
+        var deploymentName = "gpt-5.2";
 
-        Assert.False(string.IsNullOrEmpty(endpoint), "AZURE_OPENAI_ENDPOINT is not set");
         Assert.False(string.IsNullOrEmpty(apiKey), "AZURE_OPENAI_API_KEY is not set");
-        Assert.False(string.IsNullOrEmpty(deploymentName), "AZURE_OPENAI_DEPLOYMENT_NAME is not set");
 
-        var client = new AzureOpenAIClient(new Uri(endpoint), new AzureKeyCredential(apiKey));
+        var client = new AzureOpenAIClient(endpoint, new AzureKeyCredential(apiKey));
         var chatClient = client.GetChatClient(deploymentName);
-
-        var messages = new List<ChatMessage>
-        {
-            new SystemChatMessage("You are a helpful AI assistant."),
-            new UserChatMessage("Count from 1 to 5.")
-        };
 
         // Act
         _output.WriteLine("Starting streaming chat completion...");
         var fullResponse = "";
         
-        await foreach (var update in chatClient.CompleteChatStreamingAsync(messages))
+        CollectionResult<StreamingChatCompletionUpdate> completionUpdates = chatClient.CompleteChatStreaming(
+            [
+                new SystemChatMessage("You are a helpful AI assistant."),
+                new UserChatMessage("Count from 1 to 5.")
+            ]);
+
+        foreach (StreamingChatCompletionUpdate completionUpdate in completionUpdates)
         {
-            foreach (var contentPart in update.ContentUpdate)
+            foreach (ChatMessageContentPart contentPart in completionUpdate.ContentUpdate)
             {
                 fullResponse += contentPart.Text;
             }

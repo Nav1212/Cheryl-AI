@@ -16,7 +16,7 @@ public class AzureSpeechIntegrationTests
         _output = output;
         
         // Load appsettings.json to get environment file path
-        var appSettingsPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "Cheryl-AI", "appsettings.json");
+        var appSettingsPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "appsettings.json");
         var tempConfig = new ConfigurationBuilder()
             .AddJsonFile(appSettingsPath, optional: true)
             .Build();
