@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PhoneAgent")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d14b6233863e8ea0d8acd16eeb9679deaf51bbd8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+89aa0dc4481c571cc70d6b3ecd56ce53657c03be")]
 [assembly: System.Reflection.AssemblyProductAttribute("PhoneAgent")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PhoneAgent")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

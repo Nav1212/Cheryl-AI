@@ -1,3 +1,32 @@
+// Load environment variables from .env file
+var config = new ConfigurationBuilder()
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false)
+    .Build();
+
+var envFilePath = config["EnvironmentFilePath"];
+if (!string.IsNullOrEmpty(envFilePath))
+{
+    var fullPath = Path.IsPathRooted(envFilePath) 
+        ? envFilePath 
+        : Path.Combine(Directory.GetCurrentDirectory(), envFilePath);
+    
+    if (File.Exists(fullPath))
+    {
+        foreach (var line in File.ReadAllLines(fullPath))
+        {
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+                continue;
+
+            var parts = line.Split('=', 2);
+            if (parts.Length == 2)
+            {
+                Environment.SetEnvironmentVariable(parts[0].Trim(), parts[1].Trim());
+            }
+        }
+    }
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
