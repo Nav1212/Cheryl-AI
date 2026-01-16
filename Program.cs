@@ -33,6 +33,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Configure preprocessing options
+builder.Services.Configure<PhoneAgent.Configuration.PreprocessingOptions>(
+    builder.Configuration.GetSection("ConversationPreprocessing"));
+
+// Register conversation preprocessor
+builder.Services.AddSingleton<PhoneAgent.Interfaces.IConversationPreprocessor, 
+    PhoneAgent.Services.DefaultConversationPreprocessor>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
