@@ -1,0 +1,124 @@
+@using PhoneAgent.Interfaces
+@using Microsoft.JSInterop
+@inject ISpeechToTextService SpeechToTextService
+@inject IJSRuntime JSRuntime
+
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-body">
+            <h3 class="card-title text-center mb-4">Speech to Text Test</h3>
+
+            <div class="text-center mb-4">
+                @if (!isRecording)
+                {
+                    <button class="btn btn-primary btn-lg" @onclick="StartRecording">
+                        <i class="bi bi-mic-fill"></i> Start Recording
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-danger btn-lg" @onclick="StopRecording">
+                        <i class="bi bi-stop-circle-fill"></i> Stop Recording
+                    </button>
+                }
+            </div>
+
+            @if (isRecording)
+            {
+                <div class="alert alert-info text-center">
+                    <strong>🎤 Recording...</strong> Speak now
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">
+                    @errorMessage
+                </div>
+            }
+
+            <div class="mb-4">
+                <label class="form-label"><strong>Transcription:</strong></label>
+                <div class="form-control" style="min-height: 100px; background-color: #f8f9fa;">
+                    @if (string.IsNullOrEmpty(transcribedText))
+                    {
+                        <span class="text-muted">Your transcribed text will appear here...</span>
+                    }
+                    else
+                    {
+                        <span>@transcribedText</span>
+                    }
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label"><strong>Input Text:</strong></label>
+                <textarea class="form-control"
+                          rows="4"
+                          @bind="inputText"
+                          placeholder="Enter your text here..."></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .container {
+        max-width: 800px;
+    }
+</style>
+
+@code {
+    private bool isRecording = false;
+    private string transcribedText = string.Empty;
+    private string inputText = string.Empty;
+    private string errorMessage = string.Empty;
+
+    private async Task StartRecording()
+    {
+        try
+        {
+            errorMessage = string.Empty;
+            isRecording = true;
+            await JSRuntime.InvokeVoidAsync("startRecording");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error starting recording: {ex.Message}";
+            isRecording = false;
+        }
+    }
+
+    private async Task StopRecording()
+    {
+        try
+        {
+            isRecording = false;
+            errorMessage = string.Empty;
+
+            // Get audio data from JavaScript
+            var audioDataBase64 = await JSRuntime.InvokeAsync<string>("stopRecording");
+
+            if (!string.IsNullOrEmpty(audioDataBase64))
+            {
+                var audioBytes = Convert.FromBase64String(audioDataBase64);
+
+                // Transcribe audio
+                transcribedText = await SpeechToTextService.TranscribeAsync(audioBytes, "wav");
+
+                if (string.IsNullOrEmpty(transcribedText))
+                {
+                    errorMessage = "No speech detected. Please try again.";
+                }
+            }
+            else
+            {
+                errorMessage = "No audio data captured. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error processing recording: {ex.Message}";
+        }
+    }
+}

@@ -1,0 +1,256 @@
+@using PhoneAgent.Interfaces
+@using PhoneAgent.Services
+@using Microsoft.JSInterop
+@inject IPhoneService PhoneService
+@inject ISpeechToTextService SpeechToTextService
+@inject ITextToSpeechService TextToSpeechService
+@inject IJSRuntime JSRuntime
+
+<div class="container">
+    <h1>Phone Agent Testing Interface</h1>
+    <p class="text-muted">Test the phone agent by speaking into your microphone</p>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">Session Information</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">Session ID:</label>
+                    <input type="text" class="form-control" @bind="sessionId" placeholder="Auto-generated" readonly />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Status:</label>
+                    <input type="text" class="form-control" value="@callStatus" readonly />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">Audio Recording</h5>
+
+            @if (!isRecording && string.IsNullOrEmpty(callStatus))
+            {
+                <button class="btn btn-success btn-lg" @onclick="StartCall">
+                    <i class="bi bi-telephone-fill"></i> Start Call
+                </button>
+            }
+            else if (callStatus == "active")
+            {
+                <div class="mb-3">
+                    <button class="btn btn-danger btn-lg me-2" @onclick="StopRecording" disabled="@(!isRecording)">
+                        <i class="bi bi-stop-circle"></i> Stop Recording
+                    </button>
+                    <button class="btn btn-primary btn-lg me-2" @onclick="StartRecording" disabled="@isRecording">
+                        <i class="bi bi-mic-fill"></i> Start Recording
+                    </button>
+                    <button class="btn btn-warning btn-lg" @onclick="EndCall">
+                        <i class="bi bi-telephone-x"></i> End Call
+                    </button>
+                </div>
+
+                @if (isRecording)
+                {
+                    <div class="alert alert-info">
+                        <strong>Recording...</strong> Speak now
+                    </div>
+                }
+            }
+
+            <div id="audioVisualizer" class="audio-visualizer"></div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(transcribedText))
+    {
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title">Transcribed Text</h5>
+                <p class="card-text">@transcribedText</p>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(llmResponse))
+    {
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title">LLM Response (Simulated)</h5>
+                <textarea class="form-control" rows="3" @bind="llmResponse"></textarea>
+                <button class="btn btn-primary mt-2" @onclick="ConvertToSpeech">Convert to Speech & Send</button>
+            </div>
+        </div>
+    }
+
+    @if (audioResponseGenerated)
+    {
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title">Audio Response</h5>
+                <p class="text-success">Audio generated and sent to phone service!</p>
+                <audio controls id="audioPlayer"></audio>
+            </div>
+        </div>
+    }
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">Call Log</h5>
+            <div style="max-height: 300px; overflow-y: auto;">
+                @foreach (var log in callLogs)
+                {
+                    <div class="alert alert-secondary py-1 mb-1">
+                        <small>[@log.Timestamp.ToString("HH:mm:ss")]</small> @log.Message
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string sessionId = string.Empty;
+    private string callStatus = string.Empty;
+    private bool isRecording = false;
+    private string transcribedText = string.Empty;
+    private string llmResponse = string.Empty;
+    private bool audioResponseGenerated = false;
+    private List<CallLog> callLogs = new();
+
+    protected override void OnInitialized()
+    {
+        sessionId = Guid.NewGuid().ToString();
+        AddLog("Page initialized");
+    }
+
+    private async Task StartCall()
+    {
+        AddLog("Starting call...");
+        var result = await PhoneService.InitiateCallAsync("test-number", sessionId);
+
+        if (result)
+        {
+            callStatus = "active";
+            AddLog("Call started successfully");
+        }
+        else
+        {
+            AddLog("Failed to start call");
+        }
+    }
+
+    private async Task EndCall()
+    {
+        AddLog("Ending call...");
+
+        if (isRecording)
+        {
+            await StopRecording();
+        }
+
+        var result = await PhoneService.EndCallAsync(sessionId);
+
+        if (result)
+        {
+            callStatus = "ended";
+            AddLog("Call ended successfully");
+        }
+        else
+        {
+            AddLog("Failed to end call");
+        }
+    }
+
+    private async Task StartRecording()
+    {
+        AddLog("Starting audio recording...");
+        isRecording = true;
+        await JSRuntime.InvokeVoidAsync("startRecording");
+    }
+
+    private async Task StopRecording()
+    {
+        AddLog("Stopping audio recording...");
+        isRecording = false;
+
+        try
+        {
+            // Get audio data from JavaScript
+            var audioDataBase64 = await JSRuntime.InvokeAsync<string>("stopRecording");
+
+            if (!string.IsNullOrEmpty(audioDataBase64))
+            {
+                var audioBytes = Convert.FromBase64String(audioDataBase64);
+                AddLog($"Received {audioBytes.Length} bytes of audio data");
+
+                // Transcribe audio
+                AddLog("Transcribing audio...");
+                transcribedText = await SpeechToTextService.TranscribeAsync(audioBytes, "wav");
+                AddLog($"Transcription: {transcribedText}");
+
+                // Simulate LLM response
+                llmResponse = $"I heard you say: \"{transcribedText}\". This is a simulated response. In production, the LLM would process this.";
+                AddLog("LLM response generated (simulated)");
+            }
+            else
+            {
+                AddLog("No audio data received");
+            }
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Error processing recording: {ex.Message}");
+        }
+    }
+
+    private async Task ConvertToSpeech()
+    {
+        if (string.IsNullOrEmpty(llmResponse))
+        {
+            AddLog("No response to convert");
+            return;
+        }
+
+        try
+        {
+            AddLog("Converting response to speech...");
+            var audioData = await TextToSpeechService.SynthesizeAsync(llmResponse);
+
+            if (audioData.Length > 0)
+            {
+                AddLog($"Generated {audioData.Length} bytes of audio");
+
+                // Send to phone service
+                await PhoneService.SendAudioAsync(sessionId, audioData);
+                AddLog("Audio sent to phone service");
+
+                // Play audio in browser
+                var base64Audio = Convert.ToBase64String(audioData);
+                await JSRuntime.InvokeVoidAsync("playAudio", base64Audio);
+
+                audioResponseGenerated = true;
+            }
+            else
+            {
+                AddLog("No audio data generated");
+            }
+        }
+        catch (Exception ex)
+        {
+            AddLog($"Error converting to speech: {ex.Message}");
+        }
+    }
+
+    private void AddLog(string message)
+    {
+        callLogs.Add(new CallLog { Message = message, Timestamp = DateTime.Now });
+        StateHasChanged();
+    }
+
+    private class CallLog
+    {
+        public string Message { get; set; } = string.Empty;
+        public DateTime Timestamp { get; set; }
+    }
+}

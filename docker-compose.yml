@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  phoneagent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: phoneagent
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      # Azure Speech Service credentials (configure these)
+      - AzureSpeech__SubscriptionKey=${AZURE_SPEECH_KEY:-}
+      - AzureSpeech__Region=${AZURE_SPEECH_REGION:-eastus}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - phoneagent-network
+
+networks:
+  phoneagent-network:
+    driver: bridge

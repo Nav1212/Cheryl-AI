@@ -29,50 +29,48 @@ if (!string.IsNullOrEmpty(envFilePath))
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+// Add services to the container
+builder.Services.AddControllers();
+builder.Services.AddRazorPages();
+builder.Services.AddServerSideBlazor();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 builder.Services.AddOpenApi();
 
-// Configure preprocessing options
-builder.Services.Configure<PhoneAgent.Configuration.PreprocessingOptions>(
-    builder.Configuration.GetSection("ConversationPreprocessing"));
+// Configure preprocessing options (if exists)
+if (builder.Configuration.GetSection("ConversationPreprocessing").Exists())
+{
+    builder.Services.Configure<PhoneAgent.Configuration.PreprocessingOptions>(
+        builder.Configuration.GetSection("ConversationPreprocessing"));
 
-// Register conversation preprocessor
-builder.Services.AddSingleton<PhoneAgent.Interfaces.IConversationPreprocessor, 
-    PhoneAgent.Services.DefaultConversationPreprocessor>();
+    // Register conversation preprocessor (if exists)
+    builder.Services.AddSingleton<PhoneAgent.Interfaces.IConversationPreprocessor,
+        PhoneAgent.Services.DefaultConversationPreprocessor>();
+}
+
+// Register phone agent services with dependency injection
+builder.Services.AddSingleton<PhoneAgent.Interfaces.IPhoneService, PhoneAgent.Services.TestingPhoneService>();
+builder.Services.AddSingleton<PhoneAgent.Interfaces.ISpeechToTextService, PhoneAgent.Services.AzureSpeechToTextService>();
+builder.Services.AddSingleton<PhoneAgent.Interfaces.ITextToSpeechService, PhoneAgent.Services.AzureTextToSpeechService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
+    app.UseSwagger();
+    app.UseSwaggerUI();
     app.MapOpenApi();
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+app.UseAuthorization();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+app.MapControllers();
+app.MapRazorPages();
+app.MapBlazorHub();
+app.MapFallbackToPage("/_Host");
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

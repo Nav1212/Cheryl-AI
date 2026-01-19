@@ -13,4 +13,12 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Exclude test files from main project build -->
+    <Compile Remove="PhoneAgent.IntegrationTests\**" />
+    <Content Remove="PhoneAgent.IntegrationTests\**" />
+    <EmbeddedResource Remove="PhoneAgent.IntegrationTests\**" />
+    <None Remove="PhoneAgent.IntegrationTests\**" />
+  </ItemGroup>
+
 </Project>
